@@ -9,27 +9,34 @@ OUT_DIR="$ROOT_DIR/build/out"
 LOG_DIR="$ROOT_DIR/build/logs"
 ISO_NAME="BiruniOS-${VERSION}-x86_64.iso"
 
+if [[ ! "$VERSION" =~ ^[0-9]+([.][0-9]+){1,2}([.-][A-Za-z0-9]+)*$ ]]; then
+    echo "Invalid BiruniOS version: $VERSION" >&2
+    exit 2
+fi
+
 if [[ "$(id -u)" -ne 0 ]]; then
     echo "Run this script as root inside the disposable Fedora build container." >&2
     exit 1
 fi
 
 for command in livemedia-creator ksvalidator createrepo_c rpmbuild; do
-    command -v "$command" >/dev/null 2>&1 || {
+    if ! command -v "$command" >/dev/null 2>&1; then
         echo "Missing build dependency: $command" >&2
         exit 1
-    }
+    fi
 done
 
 if [[ "$FEDORA_RELEASE" != "45" ]]; then
-    echo "This starter repository is pinned to Fedora 45. Update all release references and test them before changing FEDORA_RELEASE." >&2
+    echo "This repository is pinned to Fedora 45. Update all release references and test them before changing FEDORA_RELEASE." >&2
     exit 2
 fi
 
 mkdir -p "$RESULT_DIR" "$OUT_DIR" "$LOG_DIR"
-rm -rf "$RESULT_DIR"/* "$OUT_DIR"/*
+find "$RESULT_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+find "$OUT_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 
 echo "==> Building BiruniOS RPMs"
+# Invoke the child script through Bash so Git executable-bit settings are not required.
 /bin/bash "$ROOT_DIR/scripts/build-rpms.sh" 2>&1 | tee "$LOG_DIR/rpm-build.log"
 
 echo "==> Validating Kickstart"
@@ -58,19 +65,19 @@ livemedia-creator \
     --volid="BIRUNIOS_010" \
     2>&1 | tee "$LOG_DIR/compose-console.log"
 
-ISO_PATH="$(find "$RESULT_DIR" -type f -name '*.iso' -print -quit)"
+ISO_PATH="$(find "$RESULT_DIR" -type f -name '*.iso' -size +0c -print -quit)"
 if [[ -z "$ISO_PATH" ]]; then
-    echo "livemedia-creator finished without an ISO. Inspect build/logs and build/lmc-results." >&2
+    echo "livemedia-creator finished without a non-empty ISO. Inspect build/logs and build/lmc-results." >&2
     exit 4
 fi
 
-cp -f "$ISO_PATH" "$OUT_DIR/$ISO_NAME"
+cp -f -- "$ISO_PATH" "$OUT_DIR/$ISO_NAME"
 (
     cd "$OUT_DIR"
-    sha256sum "$ISO_NAME" > SHA256SUMS
+    sha256sum -- "$ISO_NAME" > SHA256SUMS
 )
 
-cat > "$OUT_DIR/BUILD-INFO.txt" <<EOF
+cat > "$OUT_DIR/BUILD-INFO.txt" <<BUILD_INFO
 BiruniOS ${VERSION} Developer Preview
 Fedora base: ${FEDORA_RELEASE}
 Architecture: x86_64
@@ -79,7 +86,7 @@ Source commit: ${GITHUB_SHA:-local-build}
 Build timestamp (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 This is an experimental preview. Verify SHA256SUMS and test in a disposable VM before installing on physical hardware.
-EOF
+BUILD_INFO
 
 echo "==> Build completed"
 ls -lh "$OUT_DIR"
