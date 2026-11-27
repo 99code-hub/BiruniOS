@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    name: Source and shell checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: bash -n scripts/*.sh
+      - name: Check repository structure
+        run: python3 scripts/check-repo.py
+
+  kickstart-validation:
+    name: Validate Fedora 45 Kickstart
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install Kickstart validator
+        run: dnf -y install pykickstart && dnf clean all
+      - name: Validate Kickstart
+        run: ksvalidator -v F45 kickstarts/birunios-live.ks
