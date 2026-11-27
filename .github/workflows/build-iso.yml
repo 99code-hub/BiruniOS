@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: birunios-release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build-iso:
     name: Build and publish BiruniOS prerelease
@@ -47,7 +51,7 @@ jobs:
 
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9]+)*$ ]]; then
             echo "ERROR: Invalid BiruniOS version: $RAW_VERSION"
-            echo "Use a version such as 0.1.0 or 0.2.0-rc.1"
+            echo "Example: 0.1.0 or 0.2.0-rc.1"
             exit 1
           fi
 
@@ -59,7 +63,31 @@ jobs:
           echo "BiruniOS version: $VERSION"
           echo "Release tag: $TAG_NAME"
 
+      - name: Check that version has not already been released
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if git ls-remote --exit-code --refs origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            echo "ERROR: Tag ${TAG_NAME} already exists."
+            echo "Choose a new version instead of reusing an old release."
+            exit 1
+          else
+            STATUS=$?
+
+            if [[ "$STATUS" -ne 2 ]]; then
+              echo "ERROR: Unable to check remote Git tags."
+              exit "$STATUS"
+            fi
+          fi
+
+          echo "Version ${TAG_NAME} is available."
+
       - name: Free runner disk space
+        shell: bash
         run: |
           echo "Disk before cleanup:"
           df -h /
