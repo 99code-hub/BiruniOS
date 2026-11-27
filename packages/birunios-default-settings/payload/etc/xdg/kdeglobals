@@ -1,0 +1,12 @@
+[General]
+ColorScheme=BreezeDark
+Name=BiruniOS
+
+[Icons]
+Theme=breeze
+
+[WM]
+activeBackground=23,43,67
+activeForeground=255,255,255
+inactiveBackground=32,47,65
+inactiveForeground=220,230,241

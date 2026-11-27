@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=BiruniOS Welcome
+GenericName=Welcome to BiruniOS
+Comment=Get started with your BiruniOS desktop
+Exec=birunios-welcome
+Icon=birunios-welcome
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

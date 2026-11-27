@@ -1,0 +1,12 @@
+/build/
+/out/
+*.iso
+*.raw
+*.qcow2
+*.img
+*.rpm
+*.src.rpm
+*.log
+*.swp
+*~
+.DS_Store

@@ -1,0 +1,14 @@
+NAME="BiruniOS"
+ID=birunios
+ID_LIKE="fedora"
+VERSION="@BIRUNIOS_VERSION@ Developer Preview (Fedora 45 base)"
+VERSION_ID="@BIRUNIOS_VERSION@"
+PRETTY_NAME="BiruniOS @BIRUNIOS_VERSION@ Developer Preview"
+ANSI_COLOR="0;38;2;77;140;212"
+LOGO=birunios-logo
+CPE_NAME="cpe:/o:birunios:birunios:@BIRUNIOS_VERSION@"
+HOME_URL="https://github.com/99code-hub/birunios"
+DOCUMENTATION_URL="https://github.com/99code-hub/birunios/tree/main/docs"
+SUPPORT_URL="https://github.com/99code-hub/birunios/issues"
+BUG_REPORT_URL="https://github.com/99code-hub/birunios/issues"
+DEFAULT_HOSTNAME=birunios
