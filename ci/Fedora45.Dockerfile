@@ -1,3 +1,4 @@
+
 FROM fedora:45
 
 ENV LANG=C.UTF-8 \
@@ -25,6 +26,10 @@ RUN dnf -y install \
       which \
       hostname \
       shadow-utils \
+      grub2-tools \
+      grub2-pc-modules \
+    && test -s /usr/lib/grub/i386-pc/moddep.lst \
+    && test -s /usr/lib/grub/i386-pc/iso9660.mod \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
