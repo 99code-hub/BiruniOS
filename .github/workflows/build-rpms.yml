@@ -1,0 +1,42 @@
+name: Build RPM packages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'packages/**'
+      - 'applications/welcome/**'
+      - 'scripts/build-rpms.sh'
+      - '.github/workflows/build-rpms.yml'
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'applications/welcome/**'
+      - 'scripts/build-rpms.sh'
+      - '.github/workflows/build-rpms.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install RPM build tools
+        run: |
+          dnf -y install rpm-build cmake gcc-c++ make qt6-qtbase-devel createrepo_c tar
+          dnf clean all
+      - name: Build RPM packages
+        run: ./scripts/build-rpms.sh
+      - name: Upload RPM packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: BiruniOS-RPMs-${{ github.sha }}
+          path: build/rpms/*.rpm
+          if-no-files-found: error
+          retention-days: 14
