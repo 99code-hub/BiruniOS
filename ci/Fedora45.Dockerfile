@@ -29,4 +29,4 @@ RUN dnf -y install \
     && rm -rf /var/cache/dnf
 
 WORKDIR /workspace
-ENTRYPOINT ["/workspace/scripts/build-iso.sh"]
+ENTRYPOINT ["/bin/bash", "/workspace/scripts/build-iso.sh"]
