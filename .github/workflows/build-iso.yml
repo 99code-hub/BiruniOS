@@ -1,13 +1,15 @@
+
 name: BiruniOS ISO
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: BiruniOS preview version
+        description: 'BiruniOS version (example: 0.1.0)'
         required: true
         default: '0.1.0'
         type: string
+
   push:
     tags:
       - 'v*'
@@ -17,68 +19,157 @@ permissions:
 
 jobs:
   build-iso:
-    name: Compose Fedora 45 KDE live/install ISO
+    name: Build and publish BiruniOS prerelease
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Validate and resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            RAW_VERSION="$INPUT_VERSION"
+          else
+            RAW_VERSION="$GITHUB_REF_NAME"
+          fi
+
+          VERSION="${RAW_VERSION#v}"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9]+)*$ ]]; then
+            echo "ERROR: Invalid BiruniOS version: $RAW_VERSION"
+            echo "Use a version such as 0.1.0 or 0.2.0-rc.1"
+            exit 1
+          fi
+
+          TAG_NAME="v${VERSION}"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+          echo "BiruniOS version: $VERSION"
+          echo "Release tag: $TAG_NAME"
 
       - name: Free runner disk space
         run: |
-          echo 'Disk before cleanup:'
+          echo "Disk before cleanup:"
           df -h /
-          sudo rm -rf /usr/local/lib/android /opt/hostedtoolcache/CodeQL /usr/share/dotnet || true
+
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/share/dotnet || true
+
           sudo docker system prune -af || true
-          echo 'Disk after cleanup:'
+
+          echo "Disk after cleanup:"
           df -h /
 
       - name: Build Fedora 45 compose container
-        run: docker build -f ci/Fedora45.Dockerfile -t birunios-builder:${{ github.sha }} .
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          docker build \
+            -f ci/Fedora45.Dockerfile \
+            -t "birunios-builder:${GITHUB_SHA}" \
+            .
 
       - name: Build BiruniOS ISO
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          BIRUNIOS_VERSION: ${{ steps.version.outputs.version }}
+          FEDORA_RELEASE: '45'
           GITHUB_SHA: ${{ github.sha }}
+        shell: bash
         run: |
-          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
-          if [[ -z "$VERSION" || "$VERSION" == "$GITHUB_REF_NAME" ]]; then VERSION="0.1.0"; fi
+          set -Eeuo pipefail
+
           docker run --rm --privileged \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
-            --env BIRUNIOS_VERSION="$VERSION" \
-            --env FEDORA_RELEASE=45 \
-            --env GITHUB_SHA="$GITHUB_SHA" \
+            --env "BIRUNIOS_VERSION=$BIRUNIOS_VERSION" \
+            --env "FEDORA_RELEASE=$FEDORA_RELEASE" \
+            --env "GITHUB_SHA=$GITHUB_SHA" \
             --entrypoint /bin/bash \
-            birunios-builder:${{ github.sha }} \
+            "birunios-builder:${GITHUB_SHA}" \
             /workspace/scripts/build-iso.sh
 
-      - name: Inspect ISO and checksum
+      - name: Restore build output ownership
+        shell: bash
         run: |
-          ISO_FILE="$(find build/out -maxdepth 1 -type f -name 'BiruniOS-*.iso' -size +0c -print -quit)"
-          test -n "$ISO_FILE"
+          set -Eeuo pipefail
+
+          if [[ -d build ]]; then
+            sudo chown -R "$(id -u):$(id -g)" build
+          fi
+
+      - name: Inspect ISO and verify checksum
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          ISO_FILE="$(
+            find build/out \
+              -maxdepth 1 \
+              -type f \
+              -name 'BiruniOS-*.iso' \
+              -size +0c \
+              -print -quit
+          )"
+
+          if [[ -z "$ISO_FILE" ]]; then
+            echo "ERROR: BiruniOS ISO was not found."
+            exit 1
+          fi
+
           test -s build/out/SHA256SUMS
           test -s build/out/BUILD-INFO.txt
-          (cd build/out && sha256sum --check SHA256SUMS)
+
+          (
+            cd build/out
+            sha256sum --check SHA256SUMS
+          )
+
+          echo "ISO successfully verified:"
+          ls -lh "$ISO_FILE"
+
+          echo
           cat build/out/BUILD-INFO.txt
 
-      - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload ISO build artifact
+        uses: actions/upload-artifact@v7
         with:
-          name: BiruniOS-ISO-${{ github.ref_name }}-${{ github.sha }}
+          name: BiruniOS-ISO-${{ steps.version.outputs.tag_name }}-${{ github.sha }}
           path: build/out/*
           if-no-files-found: error
           retention-days: 30
 
       - name: Prepare GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: bash scripts/prepare-release-assets.sh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash scripts/prepare-release-assets.sh
 
-      - name: Publish GitHub Release for version tags
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+      - name: Publish BiruniOS GitHub prerelease
+        uses: softprops/action-gh-release@v3
         with:
+          token: ${{ github.token }}
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: BiruniOS ${{ steps.version.outputs.tag_name }}
           generate_release_notes: true
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
           files: |
             build/release-assets/*
-          prerelease: true
