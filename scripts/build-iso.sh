@@ -30,7 +30,7 @@ mkdir -p "$RESULT_DIR" "$OUT_DIR" "$LOG_DIR"
 rm -rf "$RESULT_DIR"/* "$OUT_DIR"/*
 
 echo "==> Building BiruniOS RPMs"
-"$ROOT_DIR/scripts/build-rpms.sh" 2>&1 | tee "$LOG_DIR/rpm-build.log"
+/bin/bash "$ROOT_DIR/scripts/build-rpms.sh" 2>&1 | tee "$LOG_DIR/rpm-build.log"
 
 echo "==> Validating Kickstart"
 ksvalidator -v F45 "$ROOT_DIR/kickstarts/birunios-live.ks"
