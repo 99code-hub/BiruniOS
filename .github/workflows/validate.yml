@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Check shell syntax
         run: bash -n scripts/*.sh
       - name: Check repository structure
@@ -28,7 +28,7 @@ jobs:
       image: fedora:45
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install Kickstart validator
         run: dnf -y install pykickstart && dnf clean all
       - name: Validate Kickstart
