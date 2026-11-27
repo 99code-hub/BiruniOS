@@ -5,7 +5,7 @@ sudo apt-get update
 sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools debian-archive-keyring
 
 mkdir -p work/{chroot,image/{live,boot/grub}}
-sudo debootstrap --arch=amd64 bookworm work/chroot http://debian.org
+sudo debootstrap --arch=amd64 bookworm work/chroot http://deb.debian.org/debian
 
 sudo mount --bind /dev work/chroot/dev
 sudo mount --bind /run work/chroot/run
